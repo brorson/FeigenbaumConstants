@@ -35,7 +35,7 @@ end
 # evaluated at z, a.
 function gradf(z, a::Vector)
 
-  # Specialize to position z.  Result is fcn of beta only.
+  # Specialize to position z.  Result is fcn of coeffs a only.
   fbeta(a) = f(z, a);
 
   # Compute gradient w.r.t. beta and return it
@@ -48,19 +48,23 @@ end
 # The main event -- a computation of alpha using Newton's method.
 function compute_alpha(Numdigs, N, betain)
 
-  # First set up variables, including BigNum settings
+  # First set up variables, including BigFloat settings
   # Setting precision to 5x Numdigs seems to keep Newton's method
-  # from wandering away.
+  # from wandering away.  Smaller values don't.  More fidding might
+  # improve things here.
   setprecision(5*Numdigs);
+  
+  # Set stopping tol for Newton's method so I get the number of digits
+  # I want.
   const tol = BigFloat(10.0)^-(Numdigs);
 
   zi = big(linspace(1/N, 1, N));   # Grid of sample points zi
   fn = zeros(BigFloat, N);             # Function f vector
   Jn = zeros(BigFloat, N, N);        # Jacobian
  
-  # Need starting beta.  Start with the one passed in.  N should always
-  # be larger than length(betain), so we are adding to the 
-  # betas we compute.
+  # Need expansion coeffs beta.  Start with the one passed in, betain.  
+  # N should always be larger than length(betain), so we are adding to the 
+  # betas we computed last time.
   betan = zeros(BigFloat, N);
   for i = 1:length(betain)
     betan[i] = betain[i];
@@ -115,7 +119,8 @@ function iterate_alpha()
   betan[2] = big(1.048327004372e-1);
   betan[3] = big(2.669121419134012e-2);
 
-  # Step up number of pts to compute on
+  # Step up number of pts to compute on.  Change this to get
+  # more digits
   for N = 10:20:110
     println("=================================\n")
     println("N = $N\n")
@@ -134,6 +139,8 @@ function iterate_alpha()
     write(f, "==========\nN = $N\n$(a[1:N+3])\n")
     close(f)
 
+    # Compare against the version from 
+    # http://www.plouffe.fr/simon/constants/feigenbaum.txt
     oeisalpha = oeis_alpha(3*Numdigs);
     diff = Float64(abs(myalpha) - abs(oeisalpha));
     println("diff = $diff\n")
@@ -145,7 +152,8 @@ end
 
 #------------------------------------------------
 function oeis_alpha(Numdigs)
-  # Return up to 1018 digits of alpha from the OEIS.  
+  # Return up to 1018 digits of alpha from
+  # http://www.plouffe.fr/simon/constants/feigenbaum.txt
 
   if (Numdigs <= 1018)
     setprecision(Numdigs);
