@@ -56,22 +56,23 @@ code.
 The solution method is described in a number of publications,
 including:
 
-"Introduction to universality and renormalization group techniques"
-https://arxiv.org/abs/1210.2262
+* "Introduction to universality and renormalization group techniques", https://arxiv.org/abs/1210.2262
 
-"A simpler derivation of Feigenbaum's renormalization group equation
-for the period doubling sequence"
-http://chaosbook.org/library/Copper98Feig.pdf
+* "A simpler derivation of Feigenbaum's renormalization group equation
+for the period doubling sequence", http://chaosbook.org/library/Copper98Feig.pdf
 
 ---
 
 A subdirectory of results is included here.  The files are:
+
 alpha_me_*.txt -- My computed results from Oct 2017.  The numeric
                   suffixes are the number of digits requested by
 		  iterate_alpha(), not necessariy the number of
 		  correct digits.  
+
 alpha_oeis.txt -- All 1018 digits of alpha available from 
                   http://www.plouffe.fr/simon/constants/feigenbaum.txt
+
 verify.py -- a python program which compares each digit from two input
              files and reports the number of digits of agreement.  Use
 	     this to analyze convergence of the computed alphas.
@@ -79,13 +80,15 @@ verify.py -- a python program which compares each digit from two input
 
 Last update: Stuart Brorson  10.14.2017.
 
-######################################################
+
 # Instructions:
+```
 # Run one time to get the Julia ForwardDiff package:
 Pkg.add("ForwardDiff")
+```
 
-
+```
 # To run the program:
 include("compute_alpha.jl")
 iterate_alpha();
-
+```
