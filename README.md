@@ -30,7 +30,7 @@ by doing a linear solve using the Jacobian and function values the
 usual way.  I don't need to do any backtracking or other
 special tricks. 
 
-4.  After Newton's method finds the coefficients a1 to the desired
+4.  After Newton's method finds the coefficients ai to the desired
 number of digits, alpha is computed by alpha = g(1).
 
 5.  The coefficients are returned to an outer loop (iterate_alpha())
