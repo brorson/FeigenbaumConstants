@@ -12,19 +12,24 @@ using ForwardDiff
 # series, coefficients a.  Only even powers are needed since
 # g(z) is even.
 function g(z, a::Vector)
+  #println("---> Entered g\n")
   s = 0;
   for i=length(a):-1:1
     # println("i = $i, s = $s\n")
     s = z*z*(s + a[i]);
   end
+  #println("<--- Leaving g\n")
   return (1+s)
 end
 
 #---------------------------------------------------------
 # Define relation obeyed by g(z).  Name it f(z, a)  
 function f(z, a::Vector)
-  alpha = 1/g(1, a);
+  #println("---> Entered f\n")
+  const one = big(1.0)
+  alpha = one/g(one, a);
   r = g(z, a) - alpha*g(g(z/alpha, a), a);
+  #println("<--- Leaving g\n")
   return r
 end
 
@@ -34,12 +39,13 @@ end
 # Returns row vector which is gradient of f w.r.t. a,
 # evaluated at z, a.
 function gradf(z, a::Vector)
-
+  #println("---> Entered gradf\n")
   # Specialize to position z.  Result is fcn of coeffs a only.
   fbeta(a) = f(z, a);
 
   # Compute gradient w.r.t. beta and return it
   gf1 = ForwardDiff.gradient(fbeta, a)
+  #println("<--- Leaving gradf\n")
   return gf1'
 end
 
@@ -58,7 +64,7 @@ function compute_alpha(Numdigs, N, betain)
   # I want.
   const tol = BigFloat(10.0)^-(Numdigs);
 
-  zi = big(linspace(1/N, 1, N));   # Grid of sample points zi
+  const zi = big.(linspace(1/N, 1, N));   # Grid of sample points zi
   fn = zeros(BigFloat, N);             # Function f vector
   Jn = zeros(BigFloat, N, N);        # Jacobian
  
@@ -121,7 +127,7 @@ function iterate_alpha()
 
   # Step up number of pts to compute on.  Change this to get
   # more digits
-  for N = 10:20:110
+  for N = 10:20:1700
     println("=================================\n")
     println("N = $N\n")
     Numdigs = Int(floor(2*N));
