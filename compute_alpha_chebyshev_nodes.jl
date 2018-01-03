@@ -1,15 +1,10 @@
 # This program computes Feigenbaum's alpha constant using
 # Feigenbaum's functional equation derived via renormalization
-# group methods.  This version uses a power series expansion,
-# and sample points zi at the Chebyshev nodes.  It also
-# writes out the expansion coeffs at each Newton iteration
-# and allows you to use them if you restart the calculation.
+# group methods.  This version uses a Taylor's expansion for
+# the function g(z).  The expansion is evaluated on a set of
+# Chebyshev nodes.
 #
-# The hope is that convergence will be faster if I use the 
-# Chebyshev nodes to sample the fcn.
-#
-# This variant started: Nov 2017,
-# Stuart Brorson, sbrorson@northeastern.edu
+# Started: Nov 2017 -- Stuart Brorson, sdb@cloud9.net
 
 using ForwardDiff
 using JLD
@@ -17,43 +12,42 @@ using JLD
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # Helper fcns
     
+
 #-------------------------------------------------------
-# Now create the Chebyshev points.  Only compute the points
-# between 0 and 1 since the points <0 are redundant.
+# Now create the Chebyshev points
 function generate_cheb_points(N)
   #println("---->  Entering generate_cheb_points\n")
-  k = big(1.0):big(N)
-  bigpi = big(pi);
+  local k = big(1.0):big(N)
+  local bigpi = big(pi);
   zi = cos.(bigpi*(2*k-1)./(4*N));
   #println(zi)
   #println("<----  Leaving generate_cheb_points\n")
   return zi;
 end
 
+
 #-------------------------------------------------------
-# Define universal fcn g(z, a).  It is expressed as a power
-# series, coefficients a.  Only even powers are needed since
-# g(z) is even.
-function g(z, a::Vector)
-  #println("---> Entered g\n")
-  s = 0;
+# Define universal fcn g(z, a).  It is expressed as a
+# Taylor's series, coefficients a[i].  Only even powers
+# are needed.  Use Horner's rule to perform sum.
+function g{T<:Real}(z, a::Vector{T})
+  #println("  ---->  Entering g, z = $z\n") 
+  local s = zero(z);
   for i=length(a):-1:1
-    # println("i = $i, s = $s\n")
     s = z*z*(s + a[i]);
   end
-  #println("<--- Leaving g\n")
-  return (1+s)
+  #println("  <----  Leaving g, s = $s\n") 
+  return (one(z)+s)
 end
 
-
 #---------------------------------------------------------
-# Define relation obeyed by g(z).  Name it f(z, a)  
-function f(z, a::Vector)
-  # println("---->  Entering f, a = $a\n")
-  one = big(1.0);
-  alpha = one/g(one, a);
+# Define relation obeyed by g(z).  Name it f(z, a)
+function f{T<:Real}(z, a::Vector{T})
+  #println("---->  Entering f, a = $a\n")
+  local myone = one(z);
+  local alpha = myone/g(myone, a);
   r = g(z, a) - alpha*g(g(z/alpha, a), a);
-  # println("<----  Leaving f\n")
+  #println("<----  Leaving f\n")
   return r
 end
 
@@ -62,7 +56,7 @@ end
 # Define fcn which takes gradient of f w.r.t. a.
 # Returns row vector which is gradient of f w.r.t. a,
 # evaluated at z, a.
-function gradf(z, a::Vector)
+function gradf(z, a::Vector{BigFloat})
   # println("---> Entered gradf\n")
   # Specialize to position z.  Result is fcn of coeffs a only.
   fbeta(a) = f(z, a);
@@ -70,35 +64,33 @@ function gradf(z, a::Vector)
   # Compute gradient w.r.t. beta and return it
   gf1 = ForwardDiff.gradient(fbeta, a)
   # println("<--- Leaving gradf\n")
-  return gf1'
+  return gf1
 end
 
 
 # ------------------------------------------------------------
 # The main event -- a computation of alpha using Newton's method.
-function compute_alpha(Numdigs, N, betain)
+function compute_alpha(Numdigs, Npts, betain)
 
   # First set up variables, including BigFloat settings
   # Setting precision to 5x Numdigs seems to keep Newton's method
   # from wandering away.  Smaller values don't.  More fidding might
   # improve things here.
-  setprecision(5*Numdigs);
+  setprecision(3*Numdigs);
   
   # Set stopping tol for Newton's method so I get the number of digits
   # I want.
-  const tol = BigFloat(10.0)^-(Numdigs);
+  const tol = BigFloat(10.0)^-(Npts);
 
-  # Points where to compute f
-  zi = generate_cheb_points(N);      # Grid of sample points zi
+  zi = generate_cheb_points(Npts);      # Grid of sample points zi
 
-  # set aside space for fn, Jn
-  fn = zeros(BigFloat, N);             # Function f vector
-  Jn = zeros(BigFloat, N, N);        # Jacobian
+  fn = zeros(BigFloat, Npts);             # Function f vector
+  Jn = zeros(BigFloat, Npts, Npts);        # Jacobian
  
   # Need expansion coeffs beta.  Start with the one passed in, betain.  
   # N should always be larger than length(betain), so we are adding to the 
   # betas we computed last time.
-  betan = zeros(BigFloat, N);
+  betan = zeros(BigFloat, Npts);
   for i = 1:length(betain)
     betan[i] = betain[i];
   end
@@ -107,35 +99,37 @@ function compute_alpha(Numdigs, N, betain)
   sttim = now();  # Keep track of loop timing.
 
   # Now enter Newton loop.  
-  for cnt = 1:100
-    nowtim = now();  # Keep track of loop timing
-    println("Newton iteration = $cnt, time elapsed = $(nowtim-sttim)\n")
+  for cnt = 1:10
 
     # Compute new f and Jacobian upon each iteration
-    # println("Computing fn and Jn...")
-    for i = 1:N
+    #println("Computing fn and Jn...")
+    for i = 1:Npts
       fn[i] = f(zi[i], betan);
-      Jn[i,:] = gradf(zi[i], betan);
+      Jn[i,:] = transpose(gradf(zi[i], betan));
     end
 
-    # println(fn)
-    # println(Jn)
+    #println(fn)
+    #println(Jn)
 
     # Now compute step to take, then take it.
-    # println("Computing step sn...")
+    #println("Computing step sn...")
     sn = Jn\fn;
+    #println("Step = $sn\n")
     betanp1 = betan - sn;
+    #println("betanp1 = $betanp1\n")
 
-    # Write out betanp1 and N values in case we need to restart the
+    nowtim = now();  # Keep track of loop timing
+    println("After Newton iteration = $cnt, time elapsed = $(nowtim-sttim)\n")
+
+    # Write out betanp1 and Npts values in case we need to restart the
     # calculation
-    save("./betan.jld", "betan", betanp1, "N", N)
-
+    save("./betan.jld", "betan", betanp1, "Npts", Npts)
 
     # Check for convergence
     if (norm(sn) < tol)
       println("\nDone!  Converged after $cnt iterations.\n")
       # compute alpha
-      myalpha = 1/g(1.0, betanp1);
+      myalpha = big(1.0)/g(big(1.0), betanp1);
       return myalpha, betanp1;
     end
 
@@ -169,30 +163,27 @@ function iterate_alpha()
     N0 = 4;
   else
     betan = load("./betan.jld", "betan")
-    N0 = load("./betan.jld", "N")
+    N0 = load("./betan.jld", "Npts")
   end
-    
-
+ 
   # Step up number of pts to compute on.  Change this to get
   # more digits
-  for N = N0:3*N0:5000
+  for Npts = N0:2*N0:2500
     println("=================================\n")
-    println("N = $N\n")
-    Numdigs = Int(floor(2*N));
+    println("Npts = $Npts\n")
+    Numdigs = Int(floor(2*Npts));
 
     # Call the function which computes alpha at this level
     # of precision.
-    myalpha, betan = compute_alpha(Numdigs, N, betan)
+    myalpha, betan = compute_alpha(Numdigs, Npts, betan)
     
-    # Print out myalpha as a string so I get all digits
-    # without formatting headaches.
+    # Print out myalpha
     a = string(myalpha);
     println("myalpha = $(a)\n")
 
-    # Write latest alpha value into file.
-    fil = open("alpha.dat", "a");
-    write(fil, "==========\nN = $N\n$(a)\n")
-    close(fil)
+    f = open("alpha.dat", "a");
+    write(f, "==========\nNpts = $Npts\n$(a)\n")
+    close(f)
 
     # Compare against the version from 
     # http://www.plouffe.fr/simon/constants/feigenbaum.txt
